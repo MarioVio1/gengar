@@ -1,78 +1,186 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// All available catalogs
-const ALL_CATALOGS = [
-  { id: "trending", name: "🔥 Trending della Settimana" },
-  { id: "top_rated", name: "🧠 Top Rated (Consigliati AI)" },
-  { id: "hidden_gems", name: "🍿 Hidden Gems" },
-  { id: "now_playing", name: "🎬 Al Cinema Ora" },
-  { id: "upcoming", name: "📅 Prossimamente" },
-  { id: "best_80s", name: "📼 Best of '80s" },
-  { id: "best_90s", name: "📼 Best of '90s" },
-  { id: "best_2000s", name: "💿 Best of 2000s" },
-  { id: "best_2010s", name: "📱 Best of 2010s" },
-  { id: "best_2020s", name: "🎬 Best of 2020s" },
-  { id: "random_night", name: "🎲 Random Movie Night" },
+// Genre options for Stremio subcategories
+const GENRE_OPTIONS = [
+  "Azione", "Avventura", "Animazione", "Commedia", "Crimine",
+  "Documentario", "Drammatico", "Famiglia", "Fantastico", "Storico",
+  "Horror", "Musica", "Mistero", "Romantico", "Fantascienza",
+  "Thriller", "Guerra", "Western",
 ];
 
-// Stremio Addon Manifest - Dynamic based on selected catalogs
+const TV_GENRE_OPTIONS = [
+  "Azione & Avventura", "Animazione", "Commedia", "Crimine",
+  "Documentario", "Drammatico", "Famiglia", "Kids", "Mistero",
+  "News", "Reality", "Sci-Fi & Fantasy", "Soap", "Talk",
+  "War & Politics", "Western",
+];
+
+const ANIME_GENRE_OPTIONS = [
+  "Azione", "Avventura", "Commedia", "Drammatico", "Fantastico",
+  "Horror", "Mistero", "Romantico", "Fantascienza", "Slice of Life",
+  "Sport", "Supernaturale", "Thriller", "Ecchi", "Mecha", "Musicale",
+];
+
+// Movie catalogs
+const MOVIE_CATALOGS = [
+  { id: "trending", name: "🔥 Trending", genres: true },
+  { id: "top_rated", name: "💜 Top Rated", genres: true },
+  { id: "now_playing", name: "🎬 Al Cinema", genres: true },
+  { id: "hidden_gems", name: "💎 Hidden Gems", genres: true },
+  { id: "mubi", name: "🎭 MUBI Picks", genres: true },
+  { id: "award_winners", name: "🏆 Award Winners", genres: true },
+  { id: "cannes", name: "🎖️ Cannes", genres: true },
+  { id: "venice", name: "🦁 Venezia", genres: true },
+  { id: "criterion", name: "📽️ Criterion", genres: true },
+  { id: "a24", name: "🎨 A24 Films", genres: true },
+  { id: "korean", name: "🇰🇷 Korean Cinema", genres: true },
+  { id: "italian_classics", name: "🇮🇹 Italian Classics", genres: true },
+  { id: "french_new_wave", name: "🇫🇷 French Cinema", genres: true },
+  { id: "asian_horror", name: "👹 Asian Horror", genres: false },
+  { id: "ghibli", name: "✨ Animation Masters", genres: false },
+  { id: "midnight", name: "🌙 Midnight Movies", genres: true },
+  { id: "cult", name: "💀 Cult Classics", genres: true },
+  { id: "trakt_50s", name: "📽️ Anni '50", genres: false },
+  { id: "trakt_70s", name: "📽️ Anni '70", genres: false },
+  { id: "trakt_80s", name: "📽️ Anni '80", genres: false },
+  { id: "trakt_90s", name: "📽️ Anni '90", genres: false },
+  { id: "trakt_2000s", name: "💿 Anni 2000", genres: false },
+  { id: "best_2010s", name: "📱 Anni 2010", genres: true },
+  { id: "best_2020s", name: "🎬 Anni 2020", genres: true },
+  { id: "trakt_marvel", name: "🦸 Marvel Universe", genres: false },
+  { id: "trakt_top1000", name: "🏆 Top Mondiali", genres: false },
+  { id: "random_night", name: "🎲 Random Night", genres: true },
+];
+
+const SERIES_CATALOGS = [
+  { id: "tv_trending", name: "🔥 Trending TV", genres: true },
+  { id: "tv_top_rated", name: "💜 Top Rated TV", genres: true },
+  { id: "tv_on_the_air", name: "📺 In Onda", genres: true },
+  { id: "tv_netflix", name: "🔴 Netflix", genres: true },
+  { id: "tv_hbo", name: "🟣 HBO", genres: true },
+  { id: "tv_apple", name: "🍎 Apple TV+", genres: true },
+  { id: "tv_disney", name: "🏰 Disney+", genres: true },
+  { id: "tv_kdrama", name: "🇰🇷 K-Drama", genres: false },
+  { id: "tv_random_night", name: "🎲 Random TV", genres: true },
+];
+
+const ANIME_CATALOGS = [
+  { id: "anime_main", name: "📺 Anime", genres: true },
+  { id: "anime_trending", name: "🔥 Anime Trending", genres: true },
+  { id: "anime_top", name: "💜 Top Anime", genres: true },
+  { id: "anime_airing", name: "📺 In Corso", genres: true },
+  { id: "anime_upcoming", name: "📅 Prossime Uscite", genres: true },
+  { id: "anime_popular", name: "⭐ Più Popolari", genres: true },
+  { id: "anime_action", name: "⚔️ Azione", genres: false },
+  { id: "anime_romance", name: "💕 Romantico", genres: false },
+  { id: "anime_horror", name: "👻 Horror", genres: false },
+  { id: "anime_mystery", name: "🔍 Mistero", genres: false },
+  { id: "anime_scifi", name: "🚀 Fantascienza", genres: false },
+  { id: "anime_fantasy", name: "🧙 Fantastico", genres: false },
+  { id: "anime_comedy", name: "😂 Commedia", genres: false },
+  { id: "anime_drama", name: "🎭 Drammatico", genres: false },
+  { id: "anime_mecha", name: "🤖 Mecha", genres: false },
+  { id: "anime_slice_of_life", name: "🌸 Slice of Life", genres: false },
+  { id: "anime_movies", name: "🎬 Film Anime", genres: true },
+  { id: "anime_classics", name: "📼 Anime Classici", genres: false },
+  { id: "anime_random", name: "🎲 Random Anime", genres: false },
+  { id: "trakt_anime_list", name: "🎌 A Lot of Anime", genres: false },
+];
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const catalogsParam = searchParams.get("catalogs");
-  
-  // Parse selected catalogs from query param
-  let selectedIds: string[] = [];
-  if (catalogsParam) {
-    selectedIds = catalogsParam.split(",").filter(id => 
-      ALL_CATALOGS.some(c => c.id === id)
-    );
-  }
-  
-  // If no catalogs selected, use all
-  if (selectedIds.length === 0) {
-    selectedIds = ALL_CATALOGS.map(c => c.id);
-  }
-  
-  // Filter catalogs based on selection
-  const catalogs = ALL_CATALOGS
-    .filter(c => selectedIds.includes(c.id))
-    .map(c => ({
-      type: "movie",
-      id: c.id,
-      name: c.name,
-      extra: [{ name: "skip", isRequired: false }],
-    }));
+  const typeParam = searchParams.get("t") || "all";
 
-  // Add extra fields for random_night
-  const randomNightCatalog = catalogs.find(c => c.id === "random_night");
-  if (randomNightCatalog) {
-    randomNightCatalog.extra = [
-      { name: "skip", isRequired: false },
-      { name: "genre", isRequired: false },
-      { name: "year", isRequired: false },
-    ];
+  // Logo URL - HTTPS is required for Stremio
+  const logoUrl = "https://iili.io/qXpzmcG.jpg";
+
+  // Determine what to include
+  let includeMovies = false;
+  let includeSeries = false;
+  let includeAnime = false;
+
+  switch (typeParam) {
+    case "movie":
+      includeMovies = true;
+      break;
+    case "series":
+      includeSeries = true;
+      break;
+    case "anime":
+      includeAnime = true;
+      break;
+    case "both":
+      includeMovies = true;
+      includeSeries = true;
+      break;
+    case "all":
+    default:
+      includeMovies = true;
+      includeSeries = true;
+      includeAnime = true;
+      break;
   }
+
+  // Build catalogs
+  const catalogs: Array<{
+    type: string;
+    id: string;
+    name: string;
+    extra: Array<{ name: string; isRequired: boolean; options?: string[] }>;
+  }> = [];
+
+  if (includeMovies) {
+    MOVIE_CATALOGS.forEach((c) => {
+      const extra: Array<{ name: string; isRequired: boolean; options?: string[] }> = [
+        { name: "skip", isRequired: false },
+      ];
+      if (c.genres) {
+        extra.push({ name: "genre", isRequired: false, options: GENRE_OPTIONS });
+      }
+      catalogs.push({ type: "movie", id: c.id, name: c.name, extra });
+    });
+  }
+
+  if (includeSeries) {
+    SERIES_CATALOGS.forEach((c) => {
+      const extra: Array<{ name: string; isRequired: boolean; options?: string[] }> = [
+        { name: "skip", isRequired: false },
+      ];
+      if (c.genres) {
+        extra.push({ name: "genre", isRequired: false, options: TV_GENRE_OPTIONS });
+      }
+      catalogs.push({ type: "series", id: c.id, name: c.name, extra });
+    });
+  }
+
+  if (includeAnime) {
+    ANIME_CATALOGS.forEach((c) => {
+      const extra: Array<{ name: string; isRequired: boolean; options?: string[] }> = [
+        { name: "skip", isRequired: false },
+      ];
+      if (c.genres) {
+        extra.push({ name: "genre", isRequired: false, options: ANIME_GENRE_OPTIONS });
+      }
+
+      // Tutti gli anime come series, tranne ovviamente i film anime
+      const catType = c.id === "anime_movies" ? "movie" : "series";
+
+      catalogs.push({ type: catType, id: c.id, name: c.name, extra });
+    });
+  }
+
+  // Build types (solo movie/series, niente "anime")
+  const types: string[] = [];
+  if (includeMovies) types.push("movie");
+  if (includeSeries || includeAnime) types.push("series");
 
   const manifest = {
-    id: "it.stremiodiscovery.addon",
-    version: "2.1.0",
-    name: "Stremio Discovery ITA",
-    description: "Cataloghi italiani con tutto il database TMDB: Trending, Top Rated, Best of Decade, Hidden Gems e Random Movie Night!",
-    logo: "https://www.stremio.com/website/stremio-logo-small.png",
-    background: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1920",
-    types: ["movie"],
-    catalogs,
-    resources: ["catalog"],
-    idPrefixes: ["tt"],
-    behaviorHints: {
-      configurable: true,
-      configurationRequired: false,
-      adult: false,
-    },
-  };
-
-  return NextResponse.json(manifest, {
-    headers: {
+    id: "it.gengar.discovery.addon",
+    version: "12.0.0",
+    name: "Gengar Discovery ITA",
+    description: "🎬 Film, Serie TV, Anime in italiano! Marvel, Top 1000, Anni 50-2000, Anime!",
+    logo: logoUrl,
+    background: logo):
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
@@ -81,7 +189,6 @@ export async function GET(request: NextRequest) {
   });
 }
 
-// Handle CORS preflight
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
