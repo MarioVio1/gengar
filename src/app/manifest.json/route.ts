@@ -161,15 +161,15 @@ export async function GET(request: NextRequest) {
       if (c.genres) {
         extra.push({ name: "genre", isRequired: false, options: ANIME_GENRE_OPTIONS });
       }
-      // Use "series" type for Stremio compatibility
-      catalogs.push({ type: "series", id: c.id, name: c.name, extra });
+      catalogs.push({ type: "anime", id: c.id, name: c.name, extra });
     });
   }
 
-  // Build types - anime uses "series" type for Stremio compatibility
+  // Build types
   const types: string[] = [];
   if (includeMovies) types.push("movie");
-  if (includeSeries || includeAnime) types.push("series");
+  if (includeSeries) types.push("series");
+  if (includeAnime) types.push("anime");
 
   const manifest = {
     id: "it.gengar.discovery.addon",
