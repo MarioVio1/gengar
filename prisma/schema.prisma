@@ -1,0 +1,33 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User addon configuration
+model UserAddon {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  catalogs     String   // JSON array of selected catalog IDs
+  randomNight  String?  // JSON of random night generation config
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Random night generation history
+model RandomGeneration {
+  id          String   @id @default(cuid())
+  userId      String
+  genre       String?
+  year        String?
+  movieIds    String   // JSON array of TMDB movie IDs
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
