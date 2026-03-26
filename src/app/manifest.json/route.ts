@@ -91,10 +91,8 @@ export async function GET(request: NextRequest) {
   const typeParam = searchParams.get("t") || "all";
   
   // Logo URL - HTTPS is required for Stremio
-  const forwardedHost = request.headers.get("x-forwarded-host");
-  const host = request.headers.get("host");
-  const publicHost = forwardedHost || host || "localhost:3000";
-  const logoUrl = `https://${publicHost}/gengar-logo.jpg`;
+  // Use external logo URL to ensure it works on all platforms
+  const logoUrl = "https://iili.io/qXpzmcG.jpg";
   
   // Determine what to include
   let includeMovies = false;
@@ -163,15 +161,15 @@ export async function GET(request: NextRequest) {
       if (c.genres) {
         extra.push({ name: "genre", isRequired: false, options: ANIME_GENRE_OPTIONS });
       }
-      catalogs.push({ type: "anime", id: c.id, name: c.name, extra });
+      // Use "series" type for Stremio compatibility
+      catalogs.push({ type: "series", id: c.id, name: c.name, extra });
     });
   }
 
-  // Build types
+  // Build types - anime uses "series" type for Stremio compatibility
   const types: string[] = [];
   if (includeMovies) types.push("movie");
-  if (includeSeries) types.push("series");
-  if (includeAnime) types.push("anime");
+  if (includeSeries || includeAnime) types.push("series");
 
   const manifest = {
     id: "it.gengar.discovery.addon",
