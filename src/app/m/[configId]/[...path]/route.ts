@@ -273,7 +273,7 @@ export async function GET(
 
     return NextResponse.json({
       id: "it.gengar.discovery.addon",
-      version: "14.0.0",
+      version: "15.0.0",
       name: "Gengar Discovery ITA",
       description,
       logo: logoUrl,
@@ -315,14 +315,11 @@ export async function GET(
         }
       }
       
-      // Anime catalogs - now use "series" type for Stremio compatibility
-      // Check if this is an anime catalog by ID prefix
-      const isAnimeCatalog = catalogId.startsWith("anime_");
-      if (isAnimeCatalog) {
+      // Anime catalogs
+      if (type === "anime") {
         let metas = await getAnimeCatalog(catalogId, skip);
         if (config.shuffleEnabled) metas = seededShuffle(metas as unknown[], getRandomNightSeed()) as typeof metas;
-        // Use "series" type for Stremio compatibility
-        let typedMetas = (metas as unknown[]).map(m => ({ ...m, type: "series" }));
+        let typedMetas = (metas as unknown[]).map(m => ({ ...m, type: "anime" }));
         if (erdbConfig.enabled) typedMetas = batchApplyERDB(typedMetas as Array<{ id: string; tmdb_id?: number; poster?: string }>, "series", erdbConfig);
         return NextResponse.json({ metas: typedMetas }, { headers: corsHeaders });
       }
