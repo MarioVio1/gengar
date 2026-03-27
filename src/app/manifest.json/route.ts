@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Logo URL fisso - HTTPS richiesto da Stremio
+const LOGO_URL = "https://iili.io/qXpzmcG.jpg";
+
 // Genre options for Stremio subcategories
 const GENRE_OPTIONS = [
   "Azione", "Avventura", "Animazione", "Commedia", "Crimine",
@@ -90,10 +93,6 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const typeParam = searchParams.get("t") || "all";
   
-  // Logo URL - HTTPS is required for Stremio
-  // Use external logo URL to ensure it works on all platforms
-  const logoUrl = "https://iili.io/qXpzmcG.jpg";
-  
   // Determine what to include
   let includeMovies = false;
   let includeSeries = false;
@@ -173,11 +172,11 @@ export async function GET(request: NextRequest) {
 
   const manifest = {
     id: "it.gengar.discovery.addon",
-    version: "12.0.0",
+    version: "15.0.0",
     name: "Gengar Discovery ITA",
     description: "🎬 Film, Serie TV, Anime in italiano! Marvel, Top 1000, Anni 50-2000, Anime!",
-    logo: logoUrl,
-    background: logoUrl,
+    logo: LOGO_URL,
+    background: LOGO_URL,
     types,
     catalogs,
     resources: ["catalog", "meta", "stream"],
@@ -210,6 +209,7 @@ export async function GET(request: NextRequest) {
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       "Cache-Control": "public, max-age=3600",
+      "Content-Type": "application/json",
     },
   });
 }
