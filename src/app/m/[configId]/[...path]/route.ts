@@ -288,6 +288,9 @@ export async function GET(
       });
     }
 
+    const baseUrl = request.nextUrl.origin;
+    const configureUrl = `${baseUrl}/?config=${configId}`;
+
     return NextResponse.json({
       id: "it.gengar.discovery.addon",
       version: "15.0.0",
@@ -303,6 +306,7 @@ export async function GET(
       configuration: {
         root: true,
       },
+      configureUrl,
     }, { headers: corsHeaders });
   }
 

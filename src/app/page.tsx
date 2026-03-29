@@ -1412,10 +1412,41 @@ export default function StremioDiscoveryPage() {
   const [savedConfigs, setSavedConfigs] = useState<SavedConfig[]>([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
 
+  // Parse config from URL parameter
+  const parseConfigFromUrl = useCallback((configId: string) => {
+    try {
+      let base64 = configId.replace(/-/g, "+").replace(/_/g, "/");
+      while (base64.length % 4 !== 0) base64 += "=";
+      const json = Buffer.from(base64, "base64").toString("utf8");
+      const parts = JSON.parse(json) as string[];
+      
+      if (parts[0]) setContentType(parts[0]);
+      if (parts[1]) setTopStreamingKey(parts[1]);
+      if (parts[2] !== undefined) setShuffleEnabled(parts[2] === "1");
+      if (parts[3]) setErdbConfig(parts[3]);
+      if (parts[4]) setRotation(parts[4]);
+      if (parts[5] !== undefined) setErdbPoster(parts[5] !== "0");
+      if (parts[6] !== undefined) setErdbBackdrop(parts[6] !== "0");
+      if (parts[7] !== undefined) setErdbLogo(parts[7] !== "0");
+      
+      return true;
+    } catch (e) {
+      console.error("Error parsing config from URL:", e);
+      return false;
+    }
+  }, []);
+
   // Load saved configs from localStorage on mount
   useEffect(() => {
     const timer = setTimeout(() => {
       setBaseUrl(window.location.origin);
+      
+      // Check for config in URL query parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const configParam = urlParams.get("config");
+      if (configParam) {
+        parseConfigFromUrl(configParam);
+      }
       
       // Load saved configs
       try {
@@ -1428,7 +1459,7 @@ export default function StremioDiscoveryPage() {
       }
     }, 0);
     return () => clearTimeout(timer);
-  }, []);
+  }, [parseConfigFromUrl]);
 
   // Save current configuration
   const saveCurrentConfig = (name: string) => {
