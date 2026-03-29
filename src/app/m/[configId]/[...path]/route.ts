@@ -289,7 +289,7 @@ export async function GET(
     }
 
     const baseUrl = request.nextUrl.origin;
-    const configureUrl = `${baseUrl}/?config=${configId}`;
+    const configureUrl = `${baseUrl}/configure/${configId}`;
 
     return NextResponse.json({
       id: "it.gengar.discovery.addon",
