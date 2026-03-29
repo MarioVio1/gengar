@@ -209,7 +209,7 @@ export async function GET(
     const catalogs: Array<{ type: string; id: string; name: string; extra: Array<{ name: string; isRequired: boolean }> }> = [];
 
     const CATALOG_NAMES: Record<string, string> = {
-      "top": "🔍 Cerca Film", "trending": "👻 Trending", "top_rated": "💜 Top Rated", "now_playing": "🎬 Al Cinema",
+      "trending": "👻 Trending", "top_rated": "💜 Top Rated", "now_playing": "🎬 Al Cinema",
       "romantic": "💕 Romantico", "hidden_gems": "💎 Hidden Gems",
       "genre_action": "💥 Azione", "genre_adventure": "🗺️ Avventura", "genre_animation": "🎨 Animazione",
       "genre_comedy": "😂 Commedia", "genre_crime": "🔫 Crimine", "genre_documentary": "📹 Documentario",
@@ -241,7 +241,6 @@ export async function GET(
     };
 
     if (includeMovies) {
-      catalogs.push({ type: "movie", id: "top", name: CATALOG_NAMES["top"], extra: [{ name: "skip", isRequired: false }, { name: "search", isRequired: false }] });
       const movieCatalogs = [
         "trending", "top_rated", "now_playing", "romantic", "hidden_gems",
         "genre_action", "genre_adventure", "genre_animation", "genre_comedy", "genre_crime",
