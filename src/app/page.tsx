@@ -49,6 +49,9 @@ interface SavedConfig {
   topStreamingKey: string;
   shuffleEnabled: boolean;
   erdbConfig: string;
+  erdbPoster: boolean;
+  erdbBackdrop: boolean;
+  erdbLogo: boolean;
   rotation: string;
   createdAt: string;
 }
@@ -811,7 +814,13 @@ function ConfigPanel({
   rotation,
   onRotationChange,
   erdbConfig,
-  onErdbConfigChange
+  onErdbConfigChange,
+  erdbPoster,
+  onErdbPosterChange,
+  erdbBackdrop,
+  onErdbBackdropChange,
+  erdbLogo,
+  onErdbLogoChange,
 }: { 
   selectedCatalogs: string[];
   onToggle: (id: string) => void;
@@ -826,6 +835,12 @@ function ConfigPanel({
   onRotationChange: (rotation: string) => void;
   erdbConfig: string;
   onErdbConfigChange: (config: string) => void;
+  erdbPoster: boolean;
+  onErdbPosterChange: (enabled: boolean) => void;
+  erdbBackdrop: boolean;
+  onErdbBackdropChange: (enabled: boolean) => void;
+  erdbLogo: boolean;
+  onErdbLogoChange: (enabled: boolean) => void;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -933,7 +948,7 @@ function ConfigPanel({
       <div className="mb-6 p-4 bg-purple-950/30 rounded-lg border border-purple-500/20">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-lg">🎬</span>
-          <Label className="text-sm font-semibold text-purple-300">ERDB Poster Ratings (opzionale)</Label>
+          <Label className="text-sm font-semibold text-purple-300">ERDB Ratings (opzionale)</Label>
         </div>
         <p className="text-xs text-purple-400 mb-3">
           Config string da{" "}
@@ -950,9 +965,60 @@ function ConfigPanel({
           type="text"
           value={erdbConfig}
           onChange={(e) => onErdbConfigChange(e.target.value)}
-          placeholder="Inserisci config string..."
-          className="w-full px-3 py-2 text-sm bg-purple-950/50 border border-purple-500/30 rounded-md text-purple-100 placeholder-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+          placeholder="Inserisci config string (base64url)..."
+          className="w-full px-3 py-2 text-sm bg-purple-950/50 border border-purple-500/30 rounded-md text-purple-100 placeholder-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 mb-3"
         />
+        
+        {/* ERDB Type Toggles */}
+        {erdbConfig && (
+          <div className="flex flex-wrap gap-4 mt-3 pt-3 border-t border-purple-500/20">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onErdbPosterChange(!erdbPoster)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  erdbPoster ? 'bg-purple-600' : 'bg-purple-900/50'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                    erdbPoster ? 'translate-x-5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <Label className="text-xs text-purple-300">Poster</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onErdbBackdropChange(!erdbBackdrop)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  erdbBackdrop ? 'bg-purple-600' : 'bg-purple-900/50'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                    erdbBackdrop ? 'translate-x-5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <Label className="text-xs text-purple-300">Backdrop</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onErdbLogoChange(!erdbLogo)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  erdbLogo ? 'bg-purple-600' : 'bg-purple-900/50'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                    erdbLogo ? 'translate-x-5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <Label className="text-xs text-purple-300">Logo</Label>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Top Streaming API Key */}
@@ -1340,6 +1406,9 @@ export default function StremioDiscoveryPage() {
   const [shuffleEnabled, setShuffleEnabled] = useState(false);
   const [rotation, setRotation] = useState("none");
   const [erdbConfig, setErdbConfig] = useState("");
+  const [erdbPoster, setErdbPoster] = useState(true);
+  const [erdbBackdrop, setErdbBackdrop] = useState(true);
+  const [erdbLogo, setErdbLogo] = useState(true);
   const [savedConfigs, setSavedConfigs] = useState<SavedConfig[]>([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
 
@@ -1372,6 +1441,9 @@ export default function StremioDiscoveryPage() {
       shuffleEnabled,
       rotation,
       erdbConfig,
+      erdbPoster,
+      erdbBackdrop,
+      erdbLogo,
       createdAt: new Date().toISOString(),
     };
     
@@ -1388,6 +1460,9 @@ export default function StremioDiscoveryPage() {
     if (config.shuffleEnabled !== undefined) setShuffleEnabled(config.shuffleEnabled);
     if (config.rotation !== undefined) setRotation(config.rotation);
     if (config.erdbConfig) setErdbConfig(config.erdbConfig);
+    if (config.erdbPoster !== undefined) setErdbPoster(config.erdbPoster);
+    if (config.erdbBackdrop !== undefined) setErdbBackdrop(config.erdbBackdrop);
+    if (config.erdbLogo !== undefined) setErdbLogo(config.erdbLogo);
   };
 
   // Delete a saved configuration
@@ -1441,6 +1516,9 @@ export default function StremioDiscoveryPage() {
       shuffleEnabled ? "1" : "0",
       erdbConfig,
       rotation,
+      erdbPoster ? "1" : "0",
+      erdbBackdrop ? "1" : "0",
+      erdbLogo ? "1" : "0",
     ];
     const json = JSON.stringify(config);
     const base64 = btoa(json)
@@ -1448,7 +1526,7 @@ export default function StremioDiscoveryPage() {
       .replace(/\//g, "_")
       .replace(/=+$/, "");
     return base64;
-  }, [contentType, topStreamingKey, shuffleEnabled, erdbConfig, rotation]);
+  }, [contentType, topStreamingKey, shuffleEnabled, erdbConfig, rotation, erdbPoster, erdbBackdrop, erdbLogo]);
 
   // Generate dynamic manifest URL with config ID
   const manifestUrl = useMemo(() => {
@@ -1541,6 +1619,12 @@ export default function StremioDiscoveryPage() {
             onRotationChange={setRotation}
             erdbConfig={erdbConfig}
             onErdbConfigChange={setErdbConfig}
+            erdbPoster={erdbPoster}
+            onErdbPosterChange={setErdbPoster}
+            erdbBackdrop={erdbBackdrop}
+            onErdbBackdropChange={setErdbBackdrop}
+            erdbLogo={erdbLogo}
+            onErdbLogoChange={setErdbLogo}
           />
           
           {/* Save Config Button */}

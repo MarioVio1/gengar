@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAnimeCatalog } from "@/lib/anime";
 import { getTraktCatalog, TRAKT_LISTS } from "@/lib/trakt";
-import { parseERDBConfig, batchApplyERDB } from "@/lib/erdb";
+import { parseERDBConfig, batchApplyERDB, getERDBPosterUrl, getERDBBackdropUrl } from "@/lib/erdb";
 
 const TMDB_API_KEY = "9f6dbcbddf9565f6a0f004fca81f83ee";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
@@ -50,6 +50,9 @@ function parseConfig(configId: string) {
       shuffleEnabled: parts[2] === "1",
       erdbConfig: parts[3] || "",
       rotation: parts[4] || "none",
+      erdbPoster: parts[5] !== "0",
+      erdbBackdrop: parts[6] !== "0",
+      erdbLogo: parts[7] !== "0",
     };
   } catch {
     return null;
@@ -178,7 +181,12 @@ export async function GET(
     return NextResponse.json({ error: "Invalid config" }, { status: 400, headers: corsHeaders });
   }
 
-  const erdbConfig = parseERDBConfig(config.erdbConfig || null);
+  const erdbConfig = parseERDBConfig(
+    config.erdbConfig || null,
+    config.erdbPoster !== false,
+    config.erdbBackdrop !== false,
+    config.erdbLogo !== false
+  );
   const logoUrl = "https://iili.io/qXpzmcG.jpg";
   const resource = path?.[0] || "";
 
@@ -321,7 +329,7 @@ export async function GET(
         const listKey = listKeyMap[catalogId];
         if (listKey) {
           let metas = await getTraktCatalog(listKey, skip, config.shuffleEnabled);
-          if (erdbConfig.enabled) metas = batchApplyERDB(metas, "movie", erdbConfig);
+          if (erdbConfig.enabled) metas = batchApplyERDB(metas, erdbConfig);
           return NextResponse.json({ metas }, { headers: corsHeaders });
         }
       }
@@ -331,7 +339,7 @@ export async function GET(
         let metas = await getAnimeCatalog(catalogId, skip);
         if (config.shuffleEnabled || config.rotation !== "none") metas = seededShuffle(metas as unknown[], getRotationSeed(config.rotation)) as typeof metas;
         let typedMetas = (metas as unknown[]).map(m => ({ ...m, type: "movie" }));
-        if (erdbConfig.enabled) typedMetas = batchApplyERDB(typedMetas as Array<{ id: string; tmdb_id?: number; poster?: string }>, "movie", erdbConfig);
+        if (erdbConfig.enabled) typedMetas = batchApplyERDB(typedMetas as Array<{ id: string; tmdb_id?: number; poster?: string | null; background?: string | null }>, erdbConfig);
         return NextResponse.json({ metas: typedMetas }, { headers: corsHeaders });
       }
 
@@ -362,7 +370,7 @@ export async function GET(
         if (catalogId === "tv_random_night" || config.rotation !== "none" || config.shuffleEnabled) movies = seededShuffle(removeDuplicates(movies), getRotationSeed(config.rotation));
 
         let metas = await Promise.all(movies.map((m: { id: number; title?: string; name?: string; poster_path: string | null; backdrop_path: string | null; overview: string; release_date?: string; first_air_date?: string; vote_average: number; genre_ids: number[] }) => tmdbToStremioAsync(m, "series")));
-        if (erdbConfig.enabled) metas = batchApplyERDB(metas, "series", erdbConfig);
+        if (erdbConfig.enabled) metas = batchApplyERDB(metas, erdbConfig);
         return NextResponse.json({ metas }, { headers: corsHeaders });
       }
 
@@ -423,7 +431,7 @@ export async function GET(
         ? seededShuffle(removeDuplicates(response.results), getRotationSeed(config.rotation)) 
         : response.results;
       let metas = await Promise.all(movies.map((m: { id: number; title?: string; name?: string; poster_path: string | null; backdrop_path: string | null; overview: string; release_date?: string; first_air_date?: string; vote_average: number; genre_ids: number[] }) => tmdbToStremioAsync(m, "movie")));
-      if (erdbConfig.enabled) metas = batchApplyERDB(metas, "movie", erdbConfig);
+      if (erdbConfig.enabled) metas = batchApplyERDB(metas, erdbConfig);
       return NextResponse.json({ metas }, { headers: corsHeaders });
 
     } catch (error) {
@@ -482,24 +490,20 @@ export async function GET(
       if (imdbId) meta.imdb_id = imdbId;
 
       if (erdbConfig.enabled && erdbConfig.decoded) {
-        // ✅ FIX: per ERDB usiamo "series" internamente, ma il meta esposto resta "anime"
-        const erdbInternalType = type === "anime" ? "series" : type;
-        const erdbId = `tmdb:${erdbInternalType}:${data.id}`;
-
-        const params = new URLSearchParams();
-        params.set("tmdbKey", erdbConfig.decoded.tmdbKey);
-        params.set("mdblistKey", erdbConfig.decoded.mdblistKey);
-        if (erdbConfig.decoded.lang) params.set("lang", erdbConfig.decoded.lang);
-        if (erdbConfig.decoded.ratings) params.set("ratings", erdbConfig.decoded.ratings);
-        if (erdbConfig.decoded.posterRatingStyle) params.set("ratingStyle", erdbConfig.decoded.posterRatingStyle);
-        meta.poster = `${erdbConfig.decoded.baseUrl}/poster/${erdbId}.jpg?${params.toString()}`;
-
-        const backdropParams = new URLSearchParams();
-        backdropParams.set("tmdbKey", erdbConfig.decoded.tmdbKey);
-        backdropParams.set("mdblistKey", erdbConfig.decoded.mdblistKey);
-        if (erdbConfig.decoded.lang) backdropParams.set("lang", erdbConfig.decoded.lang);
-        if (erdbConfig.decoded.backdropRatingStyle) backdropParams.set("ratingStyle", erdbConfig.decoded.backdropRatingStyle);
-        meta.background = `${erdbConfig.decoded.baseUrl}/backdrop/${erdbId}.jpg?${backdropParams.toString()}`;
+        // Build ERDB ID - use imdb if available, otherwise tmdb
+        const erdbId = imdbId ? imdbId : `tmdb:${data.id}`;
+        
+        // Apply poster ERDB if enabled
+        if (erdbConfig.posterEnabled && meta.poster) {
+          const erdbPoster = getERDBPosterUrl(erdbId, erdbConfig);
+          if (erdbPoster) meta.poster = erdbPoster;
+        }
+        
+        // Apply backdrop ERDB if enabled
+        if (erdbConfig.backdropEnabled && meta.background) {
+          const erdbBackdrop = getERDBBackdropUrl(erdbId, erdbConfig);
+          if (erdbBackdrop) meta.background = erdbBackdrop;
+        }
       }
 
       return NextResponse.json({ meta }, { headers: corsHeaders });

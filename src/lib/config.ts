@@ -12,8 +12,11 @@ export interface AddonConfig {
   types: string;           // all, movie, series, anime, both
   topStreamingKey: string; // Top Streaming API key
   shuffleEnabled: boolean; // Shuffle mode
-  erdbConfig: string;      // ERDB config string
-  rotation: string;        // none, daily, weekly
+  erdbConfig: string;      // ERDB config string (base64url)
+  erdbPoster: boolean;     // Enable ERDB poster
+  erdbBackdrop: boolean;  // Enable ERDB backdrop
+  erdbLogo: boolean;      // Enable ERDB logo
+  rotation: string;       // none, daily, weekly
 }
 
 // In-memory cache for decoded configs
@@ -29,6 +32,9 @@ export function encodeConfig(config: AddonConfig): string {
     config.shuffleEnabled ? "1" : "0",
     config.erdbConfig,
     config.rotation || "none",
+    config.erdbPoster !== false ? "1" : "0",  // default true
+    config.erdbBackdrop !== false ? "1" : "0", // default true
+    config.erdbLogo !== false ? "1" : "0",     // default true
   ]);
   
   const base64 = Buffer.from(json).toString("base64url");
@@ -60,6 +66,9 @@ export function decodeConfig(configId: string): AddonConfig | null {
       shuffleEnabled: parts[2] === "1",
       erdbConfig: parts[3] || "",
       rotation: parts[4] || "none",
+      erdbPoster: parts[5] !== "0",  // default true
+      erdbBackdrop: parts[6] !== "0", // default true
+      erdbLogo: parts[7] !== "0",    // default true
     };
     
     // Cache it
@@ -100,6 +109,9 @@ export function getConfigFromRequest(request: Request): AddonConfig {
       shuffleEnabled: sParam === "1",
       erdbConfig: eParam || "",
       rotation: "none",
+      erdbPoster: true,
+      erdbBackdrop: true,
+      erdbLogo: true,
     };
   }
   
@@ -110,6 +122,9 @@ export function getConfigFromRequest(request: Request): AddonConfig {
     shuffleEnabled: false,
     erdbConfig: "",
     rotation: "none",
+    erdbPoster: true,
+    erdbBackdrop: true,
+    erdbLogo: true,
   };
 }
 
