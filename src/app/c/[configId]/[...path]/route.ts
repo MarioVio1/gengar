@@ -156,6 +156,9 @@ export async function GET(
     if (param.startsWith("skip=")) skip = parseInt(param.slice(5)) || 0;
     else if (param.startsWith("genre=")) genre = param.slice(6);
   }
+
+  // Check if this is an anime catalog by catalogId
+  const isAnimeCatalog = id.startsWith("anime_");
   
   try {
     // CATALOG
@@ -191,7 +194,7 @@ export async function GET(
       }
       
       // Anime catalogs - use movie type for stream compatibility
-      if (type === "anime") {
+      if (isAnimeCatalog) {
         metas = await getAnimeCatalog(id, skip);
         metas = (metas as unknown[]).map(m => ({ ...m, type: "movie" }));
         if (shuffleEnabled) metas = seededShuffle(metas as unknown[], getShuffleSeed());

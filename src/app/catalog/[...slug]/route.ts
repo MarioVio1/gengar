@@ -152,6 +152,9 @@ export async function GET(
   let skip = 0;
   let genre: string | null = null;
 
+  // Check if this is an anime catalog by catalogId
+  const isAnimeCatalog = catalogId.startsWith("anime_");
+
   // Get shuffle and erdb from query params
   const url = new URL(request.url);
   const shuffleEnabled = url.searchParams.get("s") === "1";
@@ -212,8 +215,8 @@ export async function GET(
       }
     }
     
-    // Handle Anime type (Kitsu catalogs)
-    if (type === "anime") {
+    // Handle Anime type (Kitsu catalogs) - check by catalogId since we use type: "movie" in manifest
+    if (isAnimeCatalog) {
       let animeMetas = await getAnimeCatalog(catalogId, skip);
       
       // Apply shuffle if enabled

@@ -308,6 +308,9 @@ export async function GET(
       if (path[i].startsWith("skip=")) skip = parseInt(path[i].replace(".json", "").split("=")[1]) || 0;
     }
 
+    // Check if this is an anime catalog by catalogId (not by type, since we use type: "movie" for streams)
+    const isAnimeCatalog = catalogId.startsWith("anime_");
+
     try {
       if (isTraktCatalog(catalogId)) {
         const listKeyMap: Record<string, keyof typeof TRAKT_LISTS> = {
@@ -324,7 +327,7 @@ export async function GET(
       }
 
       // Anime catalog - use movie type for stream compatibility
-      if (type === "anime") {
+      if (isAnimeCatalog) {
         let metas = await getAnimeCatalog(catalogId, skip);
         if (config.shuffleEnabled || config.rotation !== "none") metas = seededShuffle(metas as unknown[], getRotationSeed(config.rotation)) as typeof metas;
         let typedMetas = (metas as unknown[]).map(m => ({ ...m, type: "movie" }));
