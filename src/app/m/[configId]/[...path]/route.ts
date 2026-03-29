@@ -226,7 +226,7 @@ export async function GET(
       "best_2010s": "📱 Anni 2010", "best_2020s": "🎬 Anni 2020",
       "trakt_50s": "🎞️ Anni '50", "trakt_70s": "📽️ Anni '70", "trakt_80s": "📼 Anni '80 (Trakt)",
       "trakt_90s": "📼 Anni '90 (Trakt)", "trakt_2000s": "💿 Anni 2000 (Trakt)",
-      "trakt_marvel": "🦸 Marvel Universe", "trakt_top1000": "🌟 Top 1000",
+      "trakt_marvel": "🦸 Marvel Universe", "trakt_top1000": "🌟 Top 1000", "marvel": "🦸 Marvel Cinematic Universe",
       "random_night": "🎲 Random Night",
       "tv_top": "🔍 Cerca Serie", "tv_trending": "👻 Trending TV", "tv_top_rated": "💜 Top Rated TV",
       "tv_on_the_air": "📺 In Onda", "tv_netflix": "🔴 Netflix", "tv_hbo": "🟣 HBO",
@@ -252,7 +252,7 @@ export async function GET(
         "midnight", "cult",
         "best_80s", "best_90s", "best_2000s", "best_2010s", "best_2020s",
         "trakt_50s", "trakt_70s", "trakt_80s", "trakt_90s", "trakt_2000s",
-        "trakt_marvel", "trakt_top1000",
+        "trakt_marvel", "trakt_top1000", "marvel",
         "random_night",
       ];
       movieCatalogs.forEach(id => {
@@ -428,6 +428,11 @@ export async function GET(
         }
         case "anime_movies": {
           response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "16", with_original_language: "ja", sort_by: "popularity.desc" }, 3) };
+          break;
+        }
+        case "marvel": {
+          const marvelCollection = await fetchTMDB("/collection/8631");
+          response = { results: marvelCollection.parts || [] };
           break;
         }
         default: return NextResponse.json({ metas: [] }, { headers: corsHeaders });
