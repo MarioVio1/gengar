@@ -195,7 +195,7 @@ export async function GET(
     const includeMovies = config.types === "all" || config.types === "movie" || config.types === "both";
     const includeSeries = config.types === "all" || config.types === "series" || config.types === "both";
     // ✅ FIX: "anime" non dipende più da "series"
-    const includeAnime = config.types === "all" || config.types === "anime";
+    const includeAnime = config.types === "all" || config.types === "anime" || config.types === "both" || config.types === "movie";
 
     const types: string[] = [];
     if (includeMovies) types.push("movie");
