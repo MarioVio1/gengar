@@ -293,7 +293,7 @@ export async function GET(
 
     return NextResponse.json({
       id: "it.gengar.discovery.addon",
-      version: "15.0.0",
+      version: "15.0.1",
       name: "Gengar Discovery ITA",
       description,
       logo: logoUrl,
