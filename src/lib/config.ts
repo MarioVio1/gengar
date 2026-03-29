@@ -119,7 +119,7 @@ export function getConfigFromRequest(request: Request): AddonConfig {
   return {
     types: "all",
     topStreamingKey: "",
-    shuffleEnabled: false,
+    shuffleEnabled: true,
     erdbConfig: "",
     rotation: "none",
     erdbPoster: true,

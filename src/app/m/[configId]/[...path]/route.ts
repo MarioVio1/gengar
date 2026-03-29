@@ -273,16 +273,19 @@ export async function GET(
       });
     }
 
-    // Always include anime catalogs
-    const animeCatalogs = [
+    // Anime catalogs - most are type "anime", only anime_movies is type "movie"
+    const animeCatalogsAnime = [
       "anime_trending", "anime_top_rated", "anime_airing", "anime_upcoming", "anime_popular",
       "anime_action", "anime_romance", "anime_horror", "anime_mystery", "anime_scifi",
       "anime_fantasy", "anime_comedy", "anime_drama", "anime_mecha", "anime_slice_of_life",
-      "anime_movies", "anime_classics", "anime_random",
+      "anime_classics", "anime_random",
     ];
-    animeCatalogs.forEach(id => {
+    animeCatalogsAnime.forEach(id => {
       catalogs.push({ type: "anime", id, name: CATALOG_NAMES[id] || id.replace(/_/g, " "), extra: [{ name: "skip", isRequired: false }, { name: "search", isRequired: false }] });
     });
+    
+    // anime_movies goes under movie type
+    catalogs.push({ type: "movie", id: "anime_movies", name: CATALOG_NAMES["anime_movies"] || "Film Anime", extra: [{ name: "skip", isRequired: false }, { name: "search", isRequired: false }] });
 
     const baseUrl = request.nextUrl.origin;
     const configureUrl = `${baseUrl}/configure/${configId}`;
@@ -422,6 +425,10 @@ export async function GET(
         case "random_night": {
           const seed = getRotationSeed(config.rotation);
           response = { results: await fetchMultiplePages("/discover/movie", { sort_by: "popularity.desc", "vote_count.gte": "50" }, 3) };
+          break;
+        }
+        case "anime_movies": {
+          response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "16", with_original_language: "ja", sort_by: "popularity.desc" }, 3) };
           break;
         }
         default: return NextResponse.json({ metas: [] }, { headers: corsHeaders });
