@@ -284,7 +284,7 @@ export async function GET(
         "anime_movies", "anime_classics", "anime_random",
       ];
       animeCatalogs.forEach(id => {
-        catalogs.push({ type: "movie", id, name: CATALOG_NAMES[id] || id.replace(/_/g, " "), extra: [{ name: "skip", isRequired: false }, { name: "search", isRequired: false }] });
+        catalogs.push({ type: "anime", id, name: CATALOG_NAMES[id] || id.replace(/_/g, " "), extra: [{ name: "skip", isRequired: false }, { name: "search", isRequired: false }] });
       });
     }
 
@@ -320,7 +320,7 @@ export async function GET(
       if (path[i].startsWith("skip=")) skip = parseInt(path[i].replace(".json", "").split("=")[1]) || 0;
     }
 
-    // Check if this is an anime catalog by catalogId (not by type, since we use type: "movie" for streams)
+    // Check if this is an anime catalog by catalogId
     const isAnimeCatalog = catalogId.startsWith("anime_");
 
     try {
@@ -342,7 +342,7 @@ export async function GET(
       if (isAnimeCatalog) {
         let metas = await getAnimeCatalog(catalogId, skip);
         if (config.shuffleEnabled || config.rotation !== "none") metas = seededShuffle(metas as unknown[], getRotationSeed(config.rotation)) as typeof metas;
-        let typedMetas = (metas as unknown[]).map(m => ({ ...m, type: "movie" }));
+        let typedMetas = (metas as unknown[]).map(m => ({ ...m, type: "anime" }));
         if (erdbConfig.enabled) typedMetas = batchApplyERDB(typedMetas as Array<{ id: string; tmdb_id?: number; poster?: string | null; background?: string | null }>, erdbConfig);
         return NextResponse.json({ metas: typedMetas }, { headers: corsHeaders });
       }
