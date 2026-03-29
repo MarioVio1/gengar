@@ -338,8 +338,8 @@ export async function GET(
         }
       }
 
-      // Anime catalog - use movie type for stream compatibility
-      if (isAnimeCatalog) {
+      // Handle type "anime" for anime catalogs
+      if (type === "anime" || isAnimeCatalog) {
         let metas = await getAnimeCatalog(catalogId, skip);
         if (config.shuffleEnabled || config.rotation !== "none") metas = seededShuffle(metas as unknown[], getRotationSeed(config.rotation)) as typeof metas;
         let typedMetas = (metas as unknown[]).map(m => ({ ...m, type: "anime" }));
