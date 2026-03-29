@@ -200,12 +200,12 @@ export async function GET(
         // Set correct type
         let typedMetas = metas.map(m => ({
           ...m,
-          type: type === "anime" ? "anime" : m.type
+          type: type === "anime" ? "movie" : m.type
         }));
         
         // Apply ERDB if configured
         if (erdbConfig.enabled) {
-          typedMetas = batchApplyERDB(typedMetas, type === "anime" ? "series" : type as "movie" | "series", erdbConfig);
+          typedMetas = batchApplyERDB(typedMetas, type === "anime" ? "movie" : type as "movie" | "series", erdbConfig);
         }
         
         return NextResponse.json({ metas: typedMetas }, { headers: corsHeaders });
@@ -221,15 +221,15 @@ export async function GET(
         animeMetas = seededShuffle(animeMetas as unknown[], getShuffleSeed()) as unknown[];
       }
       
-      // Set type to "anime"
+      // Set type to "movie" for stream compatibility
       let typedMetas = (animeMetas as unknown[]).map(m => ({
         ...m,
-        type: "anime"
+        type: "movie"
       }));
       
       // Apply ERDB if configured
       if (erdbConfig.enabled) {
-        typedMetas = batchApplyERDB(typedMetas as Array<{id: string; poster?: string; background?: string}>, "series", erdbConfig);
+        typedMetas = batchApplyERDB(typedMetas as Array<{id: string; poster?: string; background?: string}>, "movie", erdbConfig);
       }
       
       return NextResponse.json({ metas: typedMetas }, { headers: corsHeaders });

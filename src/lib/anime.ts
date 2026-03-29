@@ -159,7 +159,7 @@ function kitsuToStremio(anime: KitsuAnime) {
   
   return {
     id: `kitsu:${anime.id}`,
-    type: "anime",
+    type: "movie",
     name: title,
     poster: attr.posterImage?.medium || null,
     background: attr.coverImage?.large || null,
@@ -180,7 +180,7 @@ async function tmdbToStremio(show: TMDBShow) {
     id: imdbId || `tmdb${show.id}`,
     tmdb_id: show.id,
     imdb_id: imdbId || undefined,
-    type: "anime",
+    type: "movie",
     name: show.name,
     poster: show.poster_path ? `${TMDB_IMAGE_BASE}${show.poster_path}` : null,
     background: show.backdrop_path ? `https://image.tmdb.org/t/p/original${show.backdrop_path}` : null,
@@ -327,11 +327,10 @@ export async function getAnimeCatalog(catalogId: string, skip: number = 0): Prom
           with_genres: "16",
           with_original_language: "ja",
           sort_by: "popularity.desc",
-          page: String(page),
-        });
-        return Promise.all(movies.results.slice(0, 20).map(async (m) => {
+        }, 3);
+        return Promise.all(movies.results.slice(0, 60).map(async (m) => {
           const meta = await tmdbToStremio(m as unknown as TMDBShow);
-          return { ...meta, type: "anime" };
+          return { ...meta, type: "movie" };
         }));
       
       // Classics
@@ -341,9 +340,8 @@ export async function getAnimeCatalog(catalogId: string, skip: number = 0): Prom
           with_original_language: "ja",
           sort_by: "vote_average.desc",
           "vote_count.gte": "100",
-          page: String(page),
-        });
-        return Promise.all(classics.results.slice(0, 20).map(tmdbToStremio));
+        }, 3);
+        return Promise.all(classics.results.slice(0, 60).map(tmdbToStremio));
       
       // Random
       case "anime_random":
@@ -352,14 +350,13 @@ export async function getAnimeCatalog(catalogId: string, skip: number = 0): Prom
           with_genres: "16",
           with_original_language: "ja",
           sort_by: "popularity.desc",
-          page: String(randomPage),
-        });
-        return Promise.all(random.results.sort(() => Math.random() - 0.5).slice(0, 20).map(tmdbToStremio));
+        }, 3);
+        return Promise.all(random.results.sort(() => Math.random() - 0.5).slice(0, 60).map(tmdbToStremio));
       
       default:
         // Default to trending anime
-        const defaultData = await fetchTMDBAnime("/trending/tv/week", { with_genres: "16" });
-        return Promise.all(defaultData.results.filter(s => s.original_language === "ja").slice(0, 20).map(tmdbToStremio));
+        const defaultData = await fetchTMDBAnime("/trending/tv/week", { with_genres: "16" }, 3);
+        return Promise.all(defaultData.results.filter(s => s.original_language === "ja").slice(0, 60).map(tmdbToStremio));
     }
   } catch (error) {
     console.error("Anime catalog error:", error);

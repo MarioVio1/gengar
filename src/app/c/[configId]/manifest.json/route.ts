@@ -142,7 +142,7 @@ export async function GET(
   if (includeAnime) {
     ANIME_CATALOGS.forEach(c => {
       catalogs.push({
-        type: "anime",
+        type: "movie",
         id: c.id,
         name: c.name,
         extra: [
@@ -177,9 +177,12 @@ export async function GET(
     resources: ["catalog", "meta", "stream"],
     idPrefixes: ["imdb", "tmdb", "kitsu", "mal", "anilist"],
     behaviorHints: {
-      configurable: false,
+      configurable: true,
       configurationRequired: false,
       adult: false,
+    },
+    configuration: {
+      root: true,
     },
   };
 

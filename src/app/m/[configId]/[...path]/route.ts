@@ -49,6 +49,7 @@ function parseConfig(configId: string) {
       topStreamingKey: parts[1] || "",
       shuffleEnabled: parts[2] === "1",
       erdbConfig: parts[3] || "",
+      rotation: parts[4] || "none",
     };
   } catch {
     return null;
@@ -68,10 +69,27 @@ async function fetchTMDB(endpoint: string, params: Record<string, string> = {}) 
   const url = new URL(`${TMDB_BASE_URL}${endpoint}`);
   url.searchParams.set("api_key", TMDB_API_KEY);
   url.searchParams.set("language", "it-IT");
+  url.searchParams.set("page_size", "20");
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   const response = await fetch(url.toString(), { headers: { "Accept": "application/json" } });
   if (!response.ok) throw new Error(`TMDB error: ${response.status}`);
   return response.json();
+}
+
+async function fetchMultiplePages(endpoint: string, params: Record<string, string> = {}, numPages: number = 2): Promise<any[]> {
+  const allResults: any[] = [];
+  for (let page = 1; page <= numPages; page++) {
+    const pageParams = { ...params, page: String(page) };
+    try {
+      const data = await fetchTMDB(endpoint, pageParams);
+      if (data.results) {
+        allResults.push(...data.results);
+      }
+    } catch (e) {
+      console.error(`Error fetching page ${page}:`, e);
+    }
+  }
+  return allResults;
 }
 
 function tmdbToStremio(
@@ -132,6 +150,17 @@ function getRandomNightSeed(): number {
   const seedDate = new Date(now);
   if (hour < 2) seedDate.setDate(seedDate.getDate() - 1);
   return seedDate.getFullYear() * 10000 + (seedDate.getMonth() + 1) * 100 + seedDate.getDate();
+}
+
+function getRotationSeed(rotation: string): number {
+  const now = new Date();
+  if (rotation === "weekly") {
+    const dayOfWeek = now.getDay();
+    const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    return monday.getFullYear() * 10000 + (monday.getMonth() + 1) * 100 + monday.getDate();
+  }
+  return getRandomNightSeed();
 }
 
 function isTraktCatalog(catalogId: string): boolean {
@@ -239,8 +268,7 @@ export async function GET(
     }
 
     if (includeAnime) {
-      // ✅ FIX: tutti i cataloghi anime ora usano type: "anime"
-      catalogs.push({ type: "anime", id: "anime_top", name: CATALOG_NAMES["anime_top"], extra: [{ name: "skip", isRequired: false }, { name: "search", isRequired: false }] });
+      catalogs.push({ type: "movie", id: "anime_top", name: CATALOG_NAMES["anime_top"], extra: [{ name: "skip", isRequired: false }, { name: "search", isRequired: false }] });
       const animeCatalogs = [
         "anime_trending", "anime_top_rated", "anime_airing", "anime_upcoming", "anime_popular",
         "anime_action", "anime_romance", "anime_horror", "anime_mystery", "anime_scifi",
@@ -248,7 +276,7 @@ export async function GET(
         "anime_movies", "anime_classics", "anime_random",
       ];
       animeCatalogs.forEach(id => {
-        catalogs.push({ type: "anime", id, name: CATALOG_NAMES[id] || id.replace(/_/g, " "), extra: [{ name: "skip", isRequired: false }, { name: "search", isRequired: false }] });
+        catalogs.push({ type: "movie", id, name: CATALOG_NAMES[id] || id.replace(/_/g, " "), extra: [{ name: "skip", isRequired: false }, { name: "search", isRequired: false }] });
       });
     }
 
@@ -263,7 +291,10 @@ export async function GET(
       catalogs,
       resources: ["catalog", "meta", "stream"],
       idPrefixes: ["imdb", "tmdb", "kitsu", "mal", "anilist"],
-      behaviorHints: { configurable: false, configurationRequired: false, adult: false },
+      behaviorHints: { configurable: true, configurationRequired: false, adult: false },
+      configuration: {
+        root: true,
+      },
     }, { headers: corsHeaders });
   }
 
@@ -276,8 +307,6 @@ export async function GET(
     for (let i = 3; i < path.length; i++) {
       if (path[i].startsWith("skip=")) skip = parseInt(path[i].replace(".json", "").split("=")[1]) || 0;
     }
-
-    const page = Math.floor(skip / 20) + 1;
 
     try {
       if (isTraktCatalog(catalogId)) {
@@ -294,31 +323,30 @@ export async function GET(
         }
       }
 
-      // ✅ FIX: anime handler corretto, type rimane "anime"
+      // Anime catalog - use movie type for stream compatibility
       if (type === "anime") {
         let metas = await getAnimeCatalog(catalogId, skip);
-        if (config.shuffleEnabled) metas = seededShuffle(metas as unknown[], getRandomNightSeed()) as typeof metas;
-        let typedMetas = (metas as unknown[]).map(m => ({ ...m, type: "anime" }));
-        if (erdbConfig.enabled) typedMetas = batchApplyERDB(typedMetas as Array<{ id: string; tmdb_id?: number; poster?: string }>, "series", erdbConfig);
+        if (config.shuffleEnabled || config.rotation !== "none") metas = seededShuffle(metas as unknown[], getRotationSeed(config.rotation)) as typeof metas;
+        let typedMetas = (metas as unknown[]).map(m => ({ ...m, type: "movie" }));
+        if (erdbConfig.enabled) typedMetas = batchApplyERDB(typedMetas as Array<{ id: string; tmdb_id?: number; poster?: string }>, "movie", erdbConfig);
         return NextResponse.json({ metas: typedMetas }, { headers: corsHeaders });
       }
 
       if (type === "series") {
         let response;
-        const baseParams = { page: String(page) };
+        const baseParams = {};
 
         switch (catalogId) {
-          case "tv_trending": response = await fetchTMDB("/trending/tv/week", baseParams); break;
-          case "tv_top_rated": response = await fetchTMDB("/tv/top_rated", baseParams); break;
-          case "tv_on_the_air": response = await fetchTMDB("/tv/on_the_air", baseParams); break;
-          case "tv_netflix": response = await fetchTMDB("/discover/tv", { ...baseParams, with_networks: "213", sort_by: "popularity.desc" }); break;
-          case "tv_hbo": response = await fetchTMDB("/discover/tv", { ...baseParams, with_networks: "49", sort_by: "popularity.desc" }); break;
-          case "tv_apple": response = await fetchTMDB("/discover/tv", { ...baseParams, with_networks: "2552", sort_by: "popularity.desc" }); break;
-          case "tv_disney": response = await fetchTMDB("/discover/tv", { ...baseParams, with_networks: "2739", sort_by: "popularity.desc" }); break;
-          case "tv_kdrama": response = await fetchTMDB("/discover/tv", { ...baseParams, with_original_language: "ko", sort_by: "popularity.desc" }); break;
+          case "tv_trending": response = { results: await fetchMultiplePages("/trending/tv/week", baseParams, 2) }; break;
+          case "tv_top_rated": response = { results: await fetchMultiplePages("/tv/top_rated", baseParams, 2) }; break;
+          case "tv_on_the_air": response = { results: await fetchMultiplePages("/tv/on_the_air", baseParams, 2) }; break;
+          case "tv_netflix": response = { results: await fetchMultiplePages("/discover/tv", { with_networks: "213", sort_by: "popularity.desc" }, 2) }; break;
+          case "tv_hbo": response = { results: await fetchMultiplePages("/discover/tv", { with_networks: "49", sort_by: "popularity.desc" }, 2) }; break;
+          case "tv_apple": response = { results: await fetchMultiplePages("/discover/tv", { with_networks: "2552", sort_by: "popularity.desc" }, 2) }; break;
+          case "tv_disney": response = { results: await fetchMultiplePages("/discover/tv", { with_networks: "2739", sort_by: "popularity.desc" }, 2) }; break;
+          case "tv_kdrama": response = { results: await fetchMultiplePages("/discover/tv", { with_original_language: "ko", sort_by: "popularity.desc" }, 2) }; break;
           case "tv_random_night": {
-            const seed = getRandomNightSeed();
-            response = await fetchTMDB("/discover/tv", { page: String(Math.floor(seededRandom(seed)() * 10) + 1), sort_by: "popularity.desc", "vote_count.gte": "50" });
+            response = { results: await fetchMultiplePages("/discover/tv", { sort_by: "popularity.desc", "vote_count.gte": "50" }, 3) };
             break;
           }
           default: return NextResponse.json({ metas: [] }, { headers: corsHeaders });
@@ -328,7 +356,7 @@ export async function GET(
           ...s, title: s.name || s.title, release_date: s.first_air_date || s.release_date,
         }));
 
-        if (catalogId === "tv_random_night") movies = seededShuffle(removeDuplicates(movies), getRandomNightSeed());
+        if (catalogId === "tv_random_night" || config.rotation !== "none" || config.shuffleEnabled) movies = seededShuffle(removeDuplicates(movies), getRotationSeed(config.rotation));
 
         let metas = await Promise.all(movies.map((m: { id: number; title?: string; name?: string; poster_path: string | null; backdrop_path: string | null; overview: string; release_date?: string; first_air_date?: string; vote_average: number; genre_ids: number[] }) => tmdbToStremioAsync(m, "series")));
         if (erdbConfig.enabled) metas = batchApplyERDB(metas, "series", erdbConfig);
@@ -337,58 +365,60 @@ export async function GET(
 
       // Movies
       let response;
-      const baseParams = { page: String(page) };
+      const baseParams = {};
 
       switch (catalogId) {
-        case "trending": response = await fetchTMDB("/trending/movie/week", baseParams); break;
-        case "top_rated": response = await fetchTMDB("/movie/top_rated", baseParams); break;
-        case "now_playing": response = await fetchTMDB("/movie/now_playing", baseParams); break;
-        case "hidden_gems": response = await fetchTMDB("/discover/movie", { ...baseParams, "vote_count.gte": "50", "vote_average.gte": "7", sort_by: "vote_average.desc" }); break;
-        case "mubi": response = await fetchTMDB("/discover/movie", { ...baseParams, "vote_count.gte": "30", "vote_average.gte": "7", with_genres: "18", sort_by: "vote_average.desc" }); break;
-        case "award_winners": response = await fetchTMDB("/discover/movie", { ...baseParams, "vote_count.gte": "300", "vote_average.gte": "7.5", sort_by: "popularity.desc" }); break;
-        case "cannes": response = await fetchTMDB("/discover/movie", { ...baseParams, "vote_count.gte": "100", "vote_average.gte": "7", with_genres: "18", sort_by: "vote_average.desc" }); break;
-        case "venice": response = await fetchTMDB("/discover/movie", { ...baseParams, "vote_count.gte": "100", "vote_average.gte": "7", with_genres: "18,36", sort_by: "vote_average.desc" }); break;
-        case "criterion": response = await fetchTMDB("/discover/movie", { ...baseParams, "vote_count.gte": "50", "vote_average.gte": "7.5", sort_by: "vote_average.desc" }); break;
-        case "a24": response = await fetchTMDB("/discover/movie", { ...baseParams, "vote_count.gte": "50", "vote_average.gte": "7", "popularity.lte": "150", sort_by: "vote_average.desc" }); break;
-        case "korean": response = await fetchTMDB("/discover/movie", { ...baseParams, with_original_language: "ko", "vote_count.gte": "20", sort_by: "popularity.desc" }); break;
-        case "italian_classics": response = await fetchTMDB("/discover/movie", { ...baseParams, with_original_language: "it", "vote_count.gte": "20", sort_by: "vote_average.desc" }); break;
-        case "french_new_wave": response = await fetchTMDB("/discover/movie", { ...baseParams, with_original_language: "fr", "vote_count.gte": "20", "vote_average.gte": "6.5", sort_by: "vote_average.desc" }); break;
-        case "asian_horror": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "27", with_original_language: "ja", "vote_count.gte": "20", sort_by: "popularity.desc" }); break;
-        case "ghibli": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "16", with_original_language: "ja", "vote_count.gte": "50", sort_by: "vote_average.desc" }); break;
-        case "midnight": response = await fetchTMDB("/discover/movie", { ...baseParams, "vote_count.gte": "50", with_genres: "27,53,878", sort_by: "popularity.desc" }); break;
-        case "cult": response = await fetchTMDB("/discover/movie", { ...baseParams, "vote_count.gte": "100", "vote_average.gte": "7", sort_by: "vote_count.desc" }); break;
-        case "best_80s": response = await fetchTMDB("/discover/movie", { ...baseParams, "primary_release_date.gte": "1980-01-01", "primary_release_date.lte": "1989-12-31", sort_by: "popularity.desc" }); break;
-        case "best_90s": response = await fetchTMDB("/discover/movie", { ...baseParams, "primary_release_date.gte": "1990-01-01", "primary_release_date.lte": "1999-12-31", sort_by: "popularity.desc" }); break;
-        case "best_2000s": response = await fetchTMDB("/discover/movie", { ...baseParams, "primary_release_date.gte": "2000-01-01", "primary_release_date.lte": "2009-12-31", sort_by: "popularity.desc" }); break;
-        case "best_2010s": response = await fetchTMDB("/discover/movie", { ...baseParams, "primary_release_date.gte": "2010-01-01", "primary_release_date.lte": "2019-12-31", sort_by: "popularity.desc" }); break;
-        case "best_2020s": response = await fetchTMDB("/discover/movie", { ...baseParams, "primary_release_date.gte": "2020-01-01", "primary_release_date.lte": "2029-12-31", sort_by: "popularity.desc" }); break;
-        case "genre_action": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "28", sort_by: "popularity.desc" }); break;
-        case "genre_adventure": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "12", sort_by: "popularity.desc" }); break;
-        case "genre_animation": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "16", sort_by: "popularity.desc" }); break;
-        case "genre_comedy": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "35", sort_by: "popularity.desc" }); break;
-        case "genre_crime": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "80", sort_by: "popularity.desc" }); break;
-        case "genre_documentary": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "99", sort_by: "popularity.desc" }); break;
-        case "genre_drama": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "18", sort_by: "popularity.desc" }); break;
-        case "genre_family": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "10751", sort_by: "popularity.desc" }); break;
-        case "genre_fantasy": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "14", sort_by: "popularity.desc" }); break;
-        case "genre_history": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "36", sort_by: "popularity.desc" }); break;
-        case "genre_horror": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "27", sort_by: "popularity.desc" }); break;
-        case "genre_music": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "10402", sort_by: "popularity.desc" }); break;
-        case "genre_mystery": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "9648", sort_by: "popularity.desc" }); break;
-        case "genre_scifi": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "878", sort_by: "popularity.desc" }); break;
-        case "genre_thriller": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "53", sort_by: "popularity.desc" }); break;
-        case "genre_war": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "10752", sort_by: "popularity.desc" }); break;
-        case "genre_western": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "37", sort_by: "popularity.desc" }); break;
-        case "romantic": response = await fetchTMDB("/discover/movie", { ...baseParams, with_genres: "10749", sort_by: "popularity.desc" }); break;
+        case "trending": response = { results: await fetchMultiplePages("/trending/movie/week", baseParams, 2) }; break;
+        case "top_rated": response = { results: await fetchMultiplePages("/movie/top_rated", baseParams, 2) }; break;
+        case "now_playing": response = { results: await fetchMultiplePages("/movie/now_playing", baseParams, 2) }; break;
+        case "hidden_gems": response = { results: await fetchMultiplePages("/discover/movie", { "vote_count.gte": "50", "vote_average.gte": "7", sort_by: "vote_average.desc" }, 2) }; break;
+        case "mubi": response = { results: await fetchMultiplePages("/discover/movie", { "vote_count.gte": "30", "vote_average.gte": "7", with_genres: "18", sort_by: "vote_average.desc" }, 2) }; break;
+        case "award_winners": response = { results: await fetchMultiplePages("/discover/movie", { "vote_count.gte": "300", "vote_average.gte": "7.5", sort_by: "popularity.desc" }, 2) }; break;
+        case "cannes": response = { results: await fetchMultiplePages("/discover/movie", { "vote_count.gte": "100", "vote_average.gte": "7", with_genres: "18", sort_by: "vote_average.desc" }, 2) }; break;
+        case "venice": response = { results: await fetchMultiplePages("/discover/movie", { "vote_count.gte": "100", "vote_average.gte": "7", with_genres: "18,36", sort_by: "vote_average.desc" }, 2) }; break;
+        case "criterion": response = { results: await fetchMultiplePages("/discover/movie", { "vote_count.gte": "50", "vote_average.gte": "7.5", sort_by: "vote_average.desc" }, 2) }; break;
+        case "a24": response = { results: await fetchMultiplePages("/discover/movie", { "vote_count.gte": "50", "vote_average.gte": "7", "popularity.lte": "150", sort_by: "vote_average.desc" }, 2) }; break;
+        case "korean": response = { results: await fetchMultiplePages("/discover/movie", { with_original_language: "ko", "vote_count.gte": "20", sort_by: "popularity.desc" }, 2) }; break;
+        case "italian_classics": response = { results: await fetchMultiplePages("/discover/movie", { with_original_language: "it", "vote_count.gte": "20", sort_by: "vote_average.desc" }, 2) }; break;
+        case "french_new_wave": response = { results: await fetchMultiplePages("/discover/movie", { with_original_language: "fr", "vote_count.gte": "20", "vote_average.gte": "6.5", sort_by: "vote_average.desc" }, 2) }; break;
+        case "asian_horror": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "27", with_original_language: "ja", "vote_count.gte": "20", sort_by: "popularity.desc" }, 2) }; break;
+        case "ghibli": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "16", with_original_language: "ja", "vote_count.gte": "50", sort_by: "vote_average.desc" }, 2) }; break;
+        case "midnight": response = { results: await fetchMultiplePages("/discover/movie", { "vote_count.gte": "50", with_genres: "27,53,878", sort_by: "popularity.desc" }, 2) }; break;
+        case "cult": response = { results: await fetchMultiplePages("/discover/movie", { "vote_count.gte": "100", "vote_average.gte": "7", sort_by: "vote_count.desc" }, 2) }; break;
+        case "best_80s": response = { results: await fetchMultiplePages("/discover/movie", { primary_release_date_gte: "1980-01-01", primary_release_date_lte: "1989-12-31", sort_by: "popularity.desc" }, 2) }; break;
+        case "best_90s": response = { results: await fetchMultiplePages("/discover/movie", { primary_release_date_gte: "1990-01-01", primary_release_date_lte: "1999-12-31", sort_by: "popularity.desc" }, 2) }; break;
+        case "best_2000s": response = { results: await fetchMultiplePages("/discover/movie", { primary_release_date_gte: "2000-01-01", primary_release_date_lte: "2009-12-31", sort_by: "popularity.desc" }, 2) }; break;
+        case "best_2010s": response = { results: await fetchMultiplePages("/discover/movie", { primary_release_date_gte: "2010-01-01", primary_release_date_lte: "2019-12-31", sort_by: "popularity.desc" }, 2) }; break;
+        case "best_2020s": response = { results: await fetchMultiplePages("/discover/movie", { primary_release_date_gte: "2020-01-01", primary_release_date_lte: "2029-12-31", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_action": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "28", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_adventure": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "12", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_animation": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "16", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_comedy": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "35", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_crime": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "80", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_documentary": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "99", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_drama": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "18", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_family": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "10751", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_fantasy": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "14", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_history": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "36", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_horror": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "27", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_music": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "10402", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_mystery": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "9648", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_scifi": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "878", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_thriller": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "53", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_war": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "10752", sort_by: "popularity.desc" }, 2) }; break;
+        case "genre_western": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "37", sort_by: "popularity.desc" }, 2) }; break;
+        case "romantic": response = { results: await fetchMultiplePages("/discover/movie", { with_genres: "10749", sort_by: "popularity.desc" }, 2) }; break;
         case "random_night": {
-          const seed = getRandomNightSeed();
-          response = await fetchTMDB("/discover/movie", { page: String(Math.floor(seededRandom(seed)() * 10) + 1), sort_by: "popularity.desc", "vote_count.gte": "50" });
+          const seed = getRotationSeed(config.rotation);
+          response = { results: await fetchMultiplePages("/discover/movie", { sort_by: "popularity.desc", "vote_count.gte": "50" }, 3) };
           break;
         }
         default: return NextResponse.json({ metas: [] }, { headers: corsHeaders });
       }
 
-      let movies = catalogId === "random_night" ? seededShuffle(removeDuplicates(response.results), getRandomNightSeed()) : response.results;
+      let movies = (catalogId === "random_night" || config.rotation !== "none" || config.shuffleEnabled) 
+        ? seededShuffle(removeDuplicates(response.results), getRotationSeed(config.rotation)) 
+        : response.results;
       let metas = await Promise.all(movies.map((m: { id: number; title?: string; name?: string; poster_path: string | null; backdrop_path: string | null; overview: string; release_date?: string; first_air_date?: string; vote_average: number; genre_ids: number[] }) => tmdbToStremioAsync(m, "movie")));
       if (erdbConfig.enabled) metas = batchApplyERDB(metas, "movie", erdbConfig);
       return NextResponse.json({ metas }, { headers: corsHeaders });

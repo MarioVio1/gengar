@@ -183,19 +183,19 @@ export async function GET(
         const listKey = listKeyMap[id];
         if (listKey) {
           metas = await getTraktCatalog(listKey, skip, shuffleEnabled);
-          metas = metas.map(m => ({ ...m, type: type === "anime" ? "anime" : m.type }));
+          metas = metas.map(m => ({ ...m, type: type === "anime" ? "movie" : m.type }));
           if (shuffleEnabled) metas = seededShuffle(metas as unknown[], getShuffleSeed());
           if (erdbConfig.enabled) metas = batchApplyERDB(metas as Array<{id: string}>, type as "movie" | "series", erdbConfig);
         }
         return NextResponse.json({ metas }, { headers: corsHeaders });
       }
       
-      // Anime catalogs
+      // Anime catalogs - use movie type for stream compatibility
       if (type === "anime") {
         metas = await getAnimeCatalog(id, skip);
-        metas = (metas as unknown[]).map(m => ({ ...m, type: "anime" }));
+        metas = (metas as unknown[]).map(m => ({ ...m, type: "movie" }));
         if (shuffleEnabled) metas = seededShuffle(metas as unknown[], getShuffleSeed());
-        if (erdbConfig.enabled) metas = batchApplyERDB(metas as Array<{id: string}>, "series", erdbConfig);
+        if (erdbConfig.enabled) metas = batchApplyERDB(metas as Array<{id: string}>, "movie", erdbConfig);
         return NextResponse.json({ metas }, { headers: corsHeaders });
       }
       
@@ -456,7 +456,7 @@ export async function GET(
         
         const meta = {
           id: `kitsu:${kitsuId}`,
-          type: "anime",
+          type: "movie",
           name: attrs.titles?.en || attrs.titles?.en_jp || attrs.canonicalTitle || "Unknown",
           poster: attrs.posterImage?.large || attrs.posterImage?.medium,
           background: attrs.coverImage?.large || null,

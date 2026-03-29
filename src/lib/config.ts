@@ -13,6 +13,7 @@ export interface AddonConfig {
   topStreamingKey: string; // Top Streaming API key
   shuffleEnabled: boolean; // Shuffle mode
   erdbConfig: string;      // ERDB config string
+  rotation: string;        // none, daily, weekly
 }
 
 // In-memory cache for decoded configs
@@ -27,6 +28,7 @@ export function encodeConfig(config: AddonConfig): string {
     config.topStreamingKey,
     config.shuffleEnabled ? "1" : "0",
     config.erdbConfig,
+    config.rotation || "none",
   ]);
   
   const base64 = Buffer.from(json).toString("base64url");
@@ -57,6 +59,7 @@ export function decodeConfig(configId: string): AddonConfig | null {
       topStreamingKey: parts[1] || "",
       shuffleEnabled: parts[2] === "1",
       erdbConfig: parts[3] || "",
+      rotation: parts[4] || "none",
     };
     
     // Cache it
@@ -96,6 +99,7 @@ export function getConfigFromRequest(request: Request): AddonConfig {
       topStreamingKey: tsParam || "",
       shuffleEnabled: sParam === "1",
       erdbConfig: eParam || "",
+      rotation: "none",
     };
   }
   
@@ -105,6 +109,7 @@ export function getConfigFromRequest(request: Request): AddonConfig {
     topStreamingKey: "",
     shuffleEnabled: false,
     erdbConfig: "",
+    rotation: "none",
   };
 }
 

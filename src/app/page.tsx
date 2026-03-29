@@ -49,6 +49,7 @@ interface SavedConfig {
   topStreamingKey: string;
   shuffleEnabled: boolean;
   erdbConfig: string;
+  rotation: string;
   createdAt: string;
 }
 
@@ -807,6 +808,8 @@ function ConfigPanel({
   onTopStreamingKeyChange,
   shuffleEnabled,
   onShuffleChange,
+  rotation,
+  onRotationChange,
   erdbConfig,
   onErdbConfigChange
 }: { 
@@ -819,6 +822,8 @@ function ConfigPanel({
   onTopStreamingKeyChange: (key: string) => void;
   shuffleEnabled: boolean;
   onShuffleChange: (enabled: boolean) => void;
+  rotation: string;
+  onRotationChange: (rotation: string) => void;
   erdbConfig: string;
   onErdbConfigChange: (config: string) => void;
 }) {
@@ -901,6 +906,26 @@ function ConfigPanel({
         </div>
         <p className="text-xs text-purple-400 mt-2">
           Mescola i risultati in modo casuale (cambia ogni giorno)
+        </p>
+      </div>
+
+      {/* Rotation Dropdown */}
+      <div className="mb-6 p-4 bg-purple-950/30 rounded-lg border border-purple-500/20">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-lg">🔄</span>
+          <Label className="text-sm font-semibold text-purple-300">Rotazione Contenuti</Label>
+        </div>
+        <select
+          value={rotation}
+          onChange={(e) => onRotationChange(e.target.value)}
+          className="w-full px-3 py-2 text-sm bg-purple-950/50 border border-purple-500/30 rounded-md text-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+        >
+          <option value="none">Nessuna rotazione</option>
+          <option value="daily">Giornaliera (cambia ogni giorno)</option>
+          <option value="weekly">Settimanale (cambia ogni lunedì)</option>
+        </select>
+        <p className="text-xs text-purple-400 mt-2">
+         决定了 i contenuti cambiano automaticamente dopo il periodo selezionato
         </p>
       </div>
 
@@ -1313,6 +1338,7 @@ export default function StremioDiscoveryPage() {
   const [selectedCatalogs, setSelectedCatalogs] = useState<string[]>(getInitialCatalogs);
   const [topStreamingKey, setTopStreamingKey] = useState("");
   const [shuffleEnabled, setShuffleEnabled] = useState(false);
+  const [rotation, setRotation] = useState("none");
   const [erdbConfig, setErdbConfig] = useState("");
   const [savedConfigs, setSavedConfigs] = useState<SavedConfig[]>([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -1344,6 +1370,7 @@ export default function StremioDiscoveryPage() {
       selectedCatalogs,
       topStreamingKey,
       shuffleEnabled,
+      rotation,
       erdbConfig,
       createdAt: new Date().toISOString(),
     };
@@ -1359,6 +1386,7 @@ export default function StremioDiscoveryPage() {
     setSelectedCatalogs(config.selectedCatalogs);
     setTopStreamingKey(config.topStreamingKey);
     if (config.shuffleEnabled !== undefined) setShuffleEnabled(config.shuffleEnabled);
+    if (config.rotation !== undefined) setRotation(config.rotation);
     if (config.erdbConfig) setErdbConfig(config.erdbConfig);
   };
 
@@ -1412,6 +1440,7 @@ export default function StremioDiscoveryPage() {
       topStreamingKey,
       shuffleEnabled ? "1" : "0",
       erdbConfig,
+      rotation,
     ];
     const json = JSON.stringify(config);
     const base64 = btoa(json)
@@ -1419,7 +1448,7 @@ export default function StremioDiscoveryPage() {
       .replace(/\//g, "_")
       .replace(/=+$/, "");
     return base64;
-  }, [contentType, topStreamingKey, shuffleEnabled, erdbConfig]);
+  }, [contentType, topStreamingKey, shuffleEnabled, erdbConfig, rotation]);
 
   // Generate dynamic manifest URL with config ID
   const manifestUrl = useMemo(() => {
@@ -1508,6 +1537,8 @@ export default function StremioDiscoveryPage() {
             onTopStreamingKeyChange={setTopStreamingKey}
             shuffleEnabled={shuffleEnabled}
             onShuffleChange={setShuffleEnabled}
+            rotation={rotation}
+            onRotationChange={setRotation}
             erdbConfig={erdbConfig}
             onErdbConfigChange={setErdbConfig}
           />

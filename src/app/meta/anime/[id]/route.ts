@@ -67,7 +67,7 @@ export async function GET(
 
     const meta = {
       id: `kitsu:${kitsuId}`,
-      type: "anime",
+      type: "movie",
       name: attrs.titles?.en || attrs.titles?.en_jp || attrs.canonicalTitle || "Unknown",
       poster: attrs.posterImage?.large || attrs.posterImage?.medium || attrs.posterImage?.original,
       background: attrs.coverImage?.large || attrs.coverImage?.original || null,

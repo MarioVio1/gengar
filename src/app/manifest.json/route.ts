@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
       if (c.genres) {
         extra.push({ name: "genre", isRequired: false, options: ANIME_GENRE_OPTIONS });
       }
-      catalogs.push({ type: "anime", id: c.id, name: c.name, extra });
+      catalogs.push({ type: "movie", id: c.id, name: c.name, extra });
     });
   }
 
