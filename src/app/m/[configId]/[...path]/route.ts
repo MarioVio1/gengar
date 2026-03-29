@@ -197,11 +197,9 @@ export async function GET(
     // ✅ FIX: "anime" non dipende più da "series"
     const includeAnime = config.types === "all" || config.types === "anime" || config.types === "both" || config.types === "movie";
 
-    const types: string[] = [];
+    const types: string[] = ["anime"]; // Always include anime
     if (includeMovies) types.push("movie");
     if (includeSeries) types.push("series");
-    // ✅ FIX: aggiunto "anime" come tipo separato
-    if (includeAnime) types.push("anime");
 
     let description = "🎬 Film, Serie TV, Anime in italiano!";
     if (config.topStreamingKey) description += " ⚡ TopStreaming";
@@ -275,18 +273,16 @@ export async function GET(
       });
     }
 
-    if (includeAnime) {
-      catalogs.push({ type: "movie", id: "anime_top", name: CATALOG_NAMES["anime_top"], extra: [{ name: "skip", isRequired: false }, { name: "search", isRequired: false }] });
-      const animeCatalogs = [
-        "anime_trending", "anime_top_rated", "anime_airing", "anime_upcoming", "anime_popular",
-        "anime_action", "anime_romance", "anime_horror", "anime_mystery", "anime_scifi",
-        "anime_fantasy", "anime_comedy", "anime_drama", "anime_mecha", "anime_slice_of_life",
-        "anime_movies", "anime_classics", "anime_random",
-      ];
-      animeCatalogs.forEach(id => {
-        catalogs.push({ type: "anime", id, name: CATALOG_NAMES[id] || id.replace(/_/g, " "), extra: [{ name: "skip", isRequired: false }, { name: "search", isRequired: false }] });
-      });
-    }
+    // Always include anime catalogs
+    const animeCatalogs = [
+      "anime_trending", "anime_top_rated", "anime_airing", "anime_upcoming", "anime_popular",
+      "anime_action", "anime_romance", "anime_horror", "anime_mystery", "anime_scifi",
+      "anime_fantasy", "anime_comedy", "anime_drama", "anime_mecha", "anime_slice_of_life",
+      "anime_movies", "anime_classics", "anime_random",
+    ];
+    animeCatalogs.forEach(id => {
+      catalogs.push({ type: "anime", id, name: CATALOG_NAMES[id] || id.replace(/_/g, " "), extra: [{ name: "skip", isRequired: false }, { name: "search", isRequired: false }] });
+    });
 
     const baseUrl = request.nextUrl.origin;
     const configureUrl = `${baseUrl}/configure/${configId}`;
